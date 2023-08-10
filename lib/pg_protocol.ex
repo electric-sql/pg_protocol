@@ -1,12 +1,8 @@
 defmodule PgProtocol do
-  @moduledoc """
-  """
-  @type message() :: PgProtocol.Message.t() | [PgProtocol.Message.t()]
-
   @doc """
   Encode a message (or list of messages) into binary.
   """
-  @spec encode(message()) :: binary()
+  @spec encode(PgProtocol.Encoder.t()) :: binary()
   def encode(msg) do
     PgProtocol.Encoder.encode(msg)
   end
