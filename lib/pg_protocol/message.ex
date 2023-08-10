@@ -522,22 +522,22 @@ defmodule PgProtocol.Message do
 
     @type t() :: %__MODULE__{
             severity: String.t(),
-            code: String.t(),
-            message: String.t(),
-            detail: String.t(),
-            hint: String.t(),
-            position: String.t(),
-            internal_position: String.t(),
-            query: String.t(),
-            where: String.t(),
-            schema: String.t(),
-            table: String.t(),
-            column: String.t(),
-            data_type: String.t(),
-            constraint: String.t(),
-            file: String.t(),
-            line: String.t(),
-            routine: String.t()
+            code: nil | String.t(),
+            message: nil | String.t(),
+            detail: nil | String.t(),
+            hint: nil | String.t(),
+            position: nil | String.t(),
+            internal_position: nil | String.t(),
+            query: nil | String.t(),
+            where: nil | String.t(),
+            schema: nil | String.t(),
+            table: nil | String.t(),
+            column: nil | String.t(),
+            data_type: nil | String.t(),
+            constraint: nil | String.t(),
+            file: nil | String.t(),
+            line: nil | String.t(),
+            routine: nil | String.t()
           }
 
     def source, do: [:backend]
@@ -694,22 +694,22 @@ defmodule PgProtocol.Message do
 
     @type t() :: %__MODULE__{
             severity: String.t(),
-            code: String.t(),
-            message: String.t(),
-            detail: String.t(),
-            hint: String.t(),
-            position: String.t(),
-            internal_position: String.t(),
-            query: String.t(),
-            where: String.t(),
-            schema: String.t(),
-            table: String.t(),
-            column: String.t(),
-            data_type: String.t(),
-            constraint: String.t(),
-            file: String.t(),
-            line: String.t(),
-            routine: String.t()
+            code: nil | String.t(),
+            message: nil | String.t(),
+            detail: nil | String.t(),
+            hint: nil | String.t(),
+            position: nil | String.t(),
+            internal_position: nil | String.t(),
+            query: nil | String.t(),
+            where: nil | String.t(),
+            schema: nil | String.t(),
+            table: nil | String.t(),
+            column: nil | String.t(),
+            data_type: nil | String.t(),
+            constraint: nil | String.t(),
+            file: nil | String.t(),
+            line: nil | String.t(),
+            routine: nil | String.t()
           }
 
     def source, do: [:backend]
