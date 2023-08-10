@@ -1041,16 +1041,14 @@ defmodule PgProtocol.Message do
   end
 
   # build type specification from list of modules
+  m_t = fn m -> quote(do: unquote(m).t()) end
+
   typespec = fn
     [m], _ ->
-      {{:., [], [{:__aliases__, [alias: false], [m]}, :t]}, [], []}
+      m_t.(m)
 
     [m | rest], f ->
-      {:|, [],
-       [
-         {{:., [], [{:__aliases__, [alias: false], [m]}, :t]}, [], []},
-         f.(rest, f)
-       ]}
+      {:|, [], [m_t.(m), f.(rest, f)]}
   end
 
   @message_types @message
