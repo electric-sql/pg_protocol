@@ -164,12 +164,128 @@ defmodule PgProtocol.Decoder do
     {Enum.reverse(acc), data}
   end
 
-  def decode_msg(<<>>, "X", :frontend) do
-    %M.Terminate{}
+  def decode_msg(<<>>, "1", :backend) do
+    %M.ParseComplete{}
   end
 
-  def decode_msg(query, "Q", :frontend) do
-    %M.Query{query: decode_string(query)}
+  def decode_msg(<<>>, "2", :backend) do
+    %M.BindComplete{}
+  end
+
+  def decode_msg(<<>>, "3", :backend) do
+    %M.CloseComplete{}
+  end
+
+  def decode_msg(<<pid::i32(), payload::binary>>, "A", :backend) do
+    [channel, rest] = split_string(payload)
+    [payload, ""] = split_string(rest)
+    %M.NotificationResponse{pid: pid, channel: channel, payload: payload}
+  end
+
+  def decode_msg(data, "B", :frontend) do
+    [portal, rest] = split_string(data)
+    [source, <<nf::i16(), rest::binary>>] = split_string(rest)
+    <<format_code_data::binary-size(nf * 2), np::i16(), rest::binary>> = rest
+    format_codes = parse_format_codes(format_code_data, nf, [])
+
+    {<<nr::i16(), rest::binary>>, parameter_values} = decode_value_list(rest, np, [])
+
+    <<result_format_data::binary-size(nr * 2)>> = rest
+    result_format_codes = parse_format_codes(result_format_data, nr, [])
+
+    %M.Bind{
+      portal: portal,
+      source: source,
+      parameter_format_codes: format_codes,
+      parameters: parameter_values,
+      result_format_codes: result_format_codes
+    }
+  end
+
+  def decode_msg(<<t::binary-1, s::binary>>, "C", :frontend) do
+    %M.Close{type: t, name: decode_string(s)}
+  end
+
+  def decode_msg(s, "C", :backend) do
+    %M.CommandComplete{tag: decode_string(s)}
+  end
+
+  def decode_msg(<<>>, "c", _frontend_or_backend) do
+    %M.CopyDone{}
+  end
+
+  def decode_msg(<<t::binary-1, rest::binary>>, "D", :frontend) do
+    [name, <<>>] = split_string(rest)
+    %M.Describe{name: name, type: t}
+  end
+
+  def decode_msg(<<n::i16(), data::binary>>, "D", :backend) do
+    {<<>>, fields} = decode_value_list(data, n, [])
+    %M.DataRow{fields: fields}
+  end
+
+  def decode_msg(data, "d", _frontend_or_backend) do
+    %M.CopyData{bytes: data}
+  end
+
+  def decode_msg(data, "E", :frontend) do
+    [portal, <<max_rows::i32()>>] = split_string(data)
+    %M.Execute{portal: portal, max_rows: max_rows}
+  end
+
+  def decode_msg(errors, "E", :backend) do
+    struct(M.ErrorResponse, Error.decode(errors))
+  end
+
+  def decode_msg(<<obj_id::i32(), naf::i16(), payload::binary>>, "F", :frontend) do
+    {<<n::i16(), rest::binary>>, arg_format_codes} = copy_response_format(payload, naf, [])
+    {<<fc::i16()>>, args} = decode_value_list(rest, n, [])
+
+    %M.FunctionCall{
+      object_id: obj_id,
+      arg_format_codes: arg_format_codes,
+      args: args,
+      format: text_or_binary(fc)
+    }
+  end
+
+  def decode_msg(message, "f", :frontend) do
+    %M.CopyFail{message: decode_string(message)}
+  end
+
+  def decode_msg(data, "G", :backend) do
+    struct(M.CopyInResponse, copy_response(data))
+  end
+
+  def decode_msg(<<>>, "H", :frontend) do
+    %M.Flush{}
+  end
+
+  def decode_msg(data, "H", :backend) do
+    struct(M.CopyOutResponse, copy_response(data))
+  end
+
+  def decode_msg(<<>>, "I", :backend) do
+    %M.EmptyQueryResponse{}
+  end
+
+  def decode_msg(<<pid::i32(), key::i32()>>, "K", :backend) do
+    %M.BackendKeyData{pid: pid, key: key}
+  end
+
+  def decode_msg(body, "N", :backend) do
+    struct(M.NoticeResponse, Error.decode(body))
+  end
+
+  def decode_msg(<<>>, "n", :backend) do
+    %M.NoData{}
+  end
+
+  def decode_msg(data, "P", :frontend) do
+    [name, rest] = split_string(data)
+    [query, <<n::i16(), parameter_data::binary>>] = split_string(rest)
+    parameters = parse_parameters(parameter_data, n, [])
+    %M.Parse{name: name, query: query, params: parameters}
   end
 
   def decode_msg(data, "p", :frontend) do
@@ -192,6 +308,10 @@ defmodule PgProtocol.Decoder do
   #
   #   %M.SASLInitialResponse{name: name, response: response}
   # end
+
+  def decode_msg(query, "Q", :frontend) do
+    %M.Query{query: decode_string(query)}
+  end
 
   def decode_msg(<<0::i32()>>, "R", :backend) do
     %M.AuthenticationOk{}
@@ -238,21 +358,6 @@ defmodule PgProtocol.Decoder do
     %M.AuthenticationSASLFinal{data: data}
   end
 
-  def decode_msg(<<pid::i32(), payload::binary>>, "A", :backend) do
-    [channel, rest] = split_string(payload)
-    [payload, ""] = split_string(rest)
-    %M.NotificationResponse{pid: pid, channel: channel, payload: payload}
-  end
-
-  def decode_msg(errors, "E", :backend) do
-    struct(M.ErrorResponse, Error.decode(errors))
-  end
-
-  def decode_msg(data, "E", :frontend) do
-    [portal, <<max_rows::i32()>>] = split_string(data)
-    %M.Execute{portal: portal, max_rows: max_rows}
-  end
-
   def decode_msg(<<>>, "S", :frontend) do
     %M.Sync{}
   end
@@ -267,82 +372,14 @@ defmodule PgProtocol.Decoder do
     %M.PortalSuspended{}
   end
 
-  def decode_msg(<<>>, "I", :backend) do
-    %M.EmptyQueryResponse{}
-  end
-
-  def decode_msg(<<pid::i32(), key::i32()>>, "K", :backend) do
-    %M.BackendKeyData{pid: pid, key: key}
-  end
-
-  def decode_msg(<<s::binary-1>>, "Z", :backend) do
-    status =
-      case s do
-        "I" -> :idle
-        "T" -> :tx
-        "E" -> :failed
-      end
-
-    %M.ReadyForQuery{status: status}
-  end
-
-  def decode_msg(<<t::binary-1, s::binary>>, "C", :frontend) do
-    %M.Close{type: t, name: decode_string(s)}
-  end
-
-  def decode_msg(s, "C", :backend) do
-    %M.CommandComplete{tag: decode_string(s)}
-  end
-
   def decode_msg(<<_n::i16(), field_data::binary>>, "T", :backend) do
     fields = parse_row_description(field_data, [])
     %M.RowDescription{fields: fields}
   end
 
-  def decode_msg(<<n::i16(), data::binary>>, "D", :backend) do
-    {<<>>, fields} = decode_value_list(data, n, [])
-    %M.DataRow{fields: fields}
-  end
-
-  def decode_msg(<<t::binary-1, rest::binary>>, "D", :frontend) do
-    [name, <<>>] = split_string(rest)
-    %M.Describe{name: name, type: t}
-  end
-
-  def decode_msg(data, "d", _frontend_or_backend) do
-    %M.CopyData{bytes: data}
-  end
-
-  def decode_msg(<<>>, "c", _frontend_or_backend) do
-    %M.CopyDone{}
-  end
-
-  def decode_msg(message, "f", :frontend) do
-    %M.CopyFail{message: decode_string(message)}
-  end
-
-  def decode_msg(<<obj_id::i32(), naf::i16(), payload::binary>>, "F", :frontend) do
-    {<<n::i16(), rest::binary>>, arg_format_codes} = copy_response_format(payload, naf, [])
-    {<<fc::i16()>>, args} = decode_value_list(rest, n, [])
-
-    %M.FunctionCall{
-      object_id: obj_id,
-      arg_format_codes: arg_format_codes,
-      args: args,
-      format: text_or_binary(fc)
-    }
-  end
-
-  def decode_msg(data, "G", :backend) do
-    struct(M.CopyInResponse, copy_response(data))
-  end
-
-  def decode_msg(data, "H", :backend) do
-    struct(M.CopyOutResponse, copy_response(data))
-  end
-
-  def decode_msg(data, "W", :backend) do
-    struct(M.CopyBothResponse, copy_response(data))
+  def decode_msg(<<n::i16(), parameter_data::binary>>, "t", :backend) do
+    parameters = parse_parameters(parameter_data, n, [])
+    %M.ParameterDescription{params: parameters}
   end
 
   def decode_msg(<<l::i32(), payload::binary>>, "V", :backend) do
@@ -356,60 +393,23 @@ defmodule PgProtocol.Decoder do
     %M.FunctionCallResponse{result: result}
   end
 
-  def decode_msg(data, "P", :frontend) do
-    [name, rest] = split_string(data)
-    [query, <<n::i16(), parameter_data::binary>>] = split_string(rest)
-    parameters = parse_parameters(parameter_data, n, [])
-    %M.Parse{name: name, query: query, params: parameters}
+  def decode_msg(data, "W", :backend) do
+    struct(M.CopyBothResponse, copy_response(data))
   end
 
-  def decode_msg(<<n::i16(), parameter_data::binary>>, "t", :backend) do
-    parameters = parse_parameters(parameter_data, n, [])
-    %M.ParameterDescription{params: parameters}
+  def decode_msg(<<>>, "X", :frontend) do
+    %M.Terminate{}
   end
 
-  def decode_msg(<<>>, "H", :frontend) do
-    %M.Flush{}
-  end
+  def decode_msg(<<s::binary-1>>, "Z", :backend) do
+    status =
+      case s do
+        "I" -> :idle
+        "T" -> :tx
+        "E" -> :failed
+      end
 
-  def decode_msg(<<>>, "1", :backend) do
-    %M.ParseComplete{}
-  end
-
-  def decode_msg(<<>>, "n", :backend) do
-    %M.NoData{}
-  end
-
-  def decode_msg(data, "B", :frontend) do
-    [portal, rest] = split_string(data)
-    [source, <<nf::i16(), rest::binary>>] = split_string(rest)
-    <<format_code_data::binary-size(nf * 2), np::i16(), rest::binary>> = rest
-    format_codes = parse_format_codes(format_code_data, nf, [])
-
-    {<<nr::i16(), rest::binary>>, parameter_values} = decode_value_list(rest, np, [])
-
-    <<result_format_data::binary-size(nr * 2)>> = rest
-    result_format_codes = parse_format_codes(result_format_data, nr, [])
-
-    %M.Bind{
-      portal: portal,
-      source: source,
-      parameter_format_codes: format_codes,
-      parameters: parameter_values,
-      result_format_codes: result_format_codes
-    }
-  end
-
-  def decode_msg(<<>>, "2", :backend) do
-    %M.BindComplete{}
-  end
-
-  def decode_msg(<<>>, "3", :backend) do
-    %M.CloseComplete{}
-  end
-
-  def decode_msg(body, "N", :backend) do
-    struct(M.NoticeResponse, Error.decode(body))
+    %M.ReadyForQuery{status: status}
   end
 
   def decode_msg(body, t, side) do
