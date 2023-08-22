@@ -151,7 +151,7 @@ defmodule PgProtocol.Message do
 
   @message AuthenticationSASL
   defmodule AuthenticationSASL do
-    defstruct [:mechanisms]
+    defstruct mechanisms: []
 
     @type t() :: %__MODULE__{mechanisms: [binary()]}
 
@@ -220,7 +220,13 @@ defmodule PgProtocol.Message do
 
   @message Bind
   defmodule Bind do
-    defstruct [:portal, :source, :parameter_format_codes, :parameters, :result_format_codes]
+    defstruct [
+      :portal,
+      :source,
+      parameters: [],
+      parameter_format_codes: [],
+      result_format_codes: []
+    ]
 
     @type t() :: %__MODULE__{
             portal: String.t(),
@@ -387,7 +393,7 @@ defmodule PgProtocol.Message do
 
   @message CopyInResponse
   defmodule CopyInResponse do
-    defstruct [:format, :format_codes]
+    defstruct [:format, format_codes: []]
 
     @type t() :: %__MODULE__{format: :text | :binary, format_codes: [integer()]}
 
@@ -412,7 +418,7 @@ defmodule PgProtocol.Message do
 
   @message CopyOutResponse
   defmodule CopyOutResponse do
-    defstruct [:format, :format_codes]
+    defstruct [:format, format_codes: []]
 
     @type t() :: %__MODULE__{format: :text | :binary, format_codes: [integer()]}
 
@@ -437,7 +443,7 @@ defmodule PgProtocol.Message do
 
   @message CopyBothResponse
   defmodule CopyBothResponse do
-    defstruct [:format, :format_codes]
+    defstruct [:format, format_codes: []]
 
     @type t() :: %__MODULE__{format: :text | :binary, format_codes: [integer()]}
 
@@ -462,7 +468,7 @@ defmodule PgProtocol.Message do
 
   @message DataRow
   defmodule DataRow do
-    defstruct [:fields]
+    defstruct fields: []
 
     @type t() :: %__MODULE__{fields: [nil | binary()]}
 
@@ -582,7 +588,7 @@ defmodule PgProtocol.Message do
 
   @message FunctionCall
   defmodule FunctionCall do
-    defstruct [:object_id, :arg_format_codes, :args, :format]
+    defstruct [:object_id, :format, arg_format_codes: [], args: []]
 
     @type t() :: %__MODULE__{
             object_id: integer(),
@@ -617,9 +623,7 @@ defmodule PgProtocol.Message do
   defmodule FunctionCallResponse do
     defstruct [:result]
 
-    @type t() :: %__MODULE__{
-            result: nil | binary()
-          }
+    @type t() :: %__MODULE__{result: nil | binary()}
 
     def source, do: [:backend]
 
@@ -741,7 +745,7 @@ defmodule PgProtocol.Message do
 
   @message ParameterDescription
   defmodule ParameterDescription do
-    defstruct [:params]
+    defstruct params: []
 
     @type t() :: %__MODULE__{params: [integer()]}
 
@@ -776,7 +780,7 @@ defmodule PgProtocol.Message do
 
   @message Parse
   defmodule Parse do
-    defstruct [:name, :query, :params]
+    defstruct [:name, :query, params: []]
 
     @type t() :: %__MODULE__{name: String.t(), query: String.t(), params: [integer()]}
 
