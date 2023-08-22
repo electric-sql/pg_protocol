@@ -78,6 +78,12 @@ defmodule PgProtocol.Message.Error do
     end
   end
 
+  # "V" is the non-localised version of the severity - rather than have
+  # two values for severity, I'm just dropping it
+  defp decode(<<"V", rest::binary>>, acc) do
+    decode(rest, acc)
+  end
+
   defp decode(<<t::binary-1, rest::binary>>, acc) do
     [msg, rest] = split_string(rest)
     Logger.warning("Dropping error field of type #{inspect(t)}: #{inspect(msg)}")
