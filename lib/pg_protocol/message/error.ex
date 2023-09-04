@@ -81,6 +81,7 @@ defmodule PgProtocol.Message.Error do
   # "V" is the non-localised version of the severity - rather than have
   # two values for severity, I'm just dropping it
   defp decode(<<"V", rest::binary>>, acc) do
+    [_msg, rest] = split_string(rest)
     decode(rest, acc)
   end
 
