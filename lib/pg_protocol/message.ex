@@ -72,8 +72,7 @@ defmodule PgProtocol.Message do
     def salt_length, do: @salt_length
 
     def salt do
-      # :crypto.strong_rand_bytes(@salt_length)
-      "salt"
+      :crypto.strong_rand_bytes(@salt_length)
     end
 
     def new(args \\ []) do
