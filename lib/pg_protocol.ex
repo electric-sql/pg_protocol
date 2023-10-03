@@ -1,4 +1,6 @@
 defmodule PgProtocol do
+  @type t() :: PgProtocol.Message.t()
+
   @doc """
   Encode a message (or list of messages) into binary.
   """
