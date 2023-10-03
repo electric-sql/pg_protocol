@@ -53,7 +53,7 @@ defmodule PgProtocol.Message.Error do
       Enum.map(@tags, fn {n, t} ->
         case Map.get(msg, n, nil) do
           nil -> ""
-          v -> string(<<t::binary, v::binary>>)
+          v -> string(<<t::binary, to_string(v)::binary>>)
         end
       end)
       |> IO.iodata_to_binary()
